@@ -46,7 +46,7 @@ export const about = {
     { name: "Amwell", logo: "/logos/amwell-patient.png", url: "https://apps.apple.com/us/app/amwell-doctor-visits-24-7/id655783752" },
     { name: "Amwell for Clinicians", logo: "/logos/amwell-clinicians.png", url: "https://apps.apple.com/us/app/american-well-for-clinicians/id982388638" },
     { name: "The Boston Globe", logo: "/logos/boston-globe.png", url: "https://apps.apple.com/ca/app/the-boston-globe-epaper/id511127322" },
-    { name: "Blue Cross Blue Shield", url: "https://apps.apple.com/ca/app/blue-cross-mobile/id674013263" },
+    { name: "Blue Cross Medavie", logo: "/logos/blue-cross-medavie.png", url: "https://apps.apple.com/ca/app/blue-cross-mobile/id674013263" },
     { name: "Wawa", logo: "/logos/wawa.png", url: "https://apps.apple.com/ca/app/wawa/id938319774" },
   ],
 };
