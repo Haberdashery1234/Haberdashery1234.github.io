@@ -91,7 +91,7 @@ export default function PhoneMockup() {
   const resume = socials.find((s) => s.icon === "file-text");
 
   const dock: DockItem[] = [
-    { label: "Contact", href: "#contact", external: false, variant: "image", src: "/messages-icon.png" },
+    { label: "Contact", href: "#contact", external: false, variant: "image", src: "/logos/messages-icon.png" },
     ...(github
       ? [{ label: "GitHub", href: github.href, external: true, variant: "badge" as const, color: "#ffffff", icon: iconMap.github }]
       : []),
