@@ -136,7 +136,8 @@ export default function ProjectsGrid() {
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {project.tags.map((tag) => (
+                {/* Card shows a preview; the modal shows all of project.tags. */}
+                {project.tags.slice(0, 5).map((tag) => (
                   <span
                     key={tag}
                     className="text-xs rounded-full border border-border px-2.5 py-1 text-muted"
@@ -144,6 +145,11 @@ export default function ProjectsGrid() {
                     {tag}
                   </span>
                 ))}
+                {project.tags.length > 5 && (
+                  <span className="text-xs px-1 py-1 text-muted">
+                    +{project.tags.length - 5} more
+                  </span>
+                )}
               </div>
 
               {/* Sits above the stretched link (z-10 vs its z-0) so these

@@ -2,7 +2,7 @@ export const profile = {
   name: "Christian Grise",
   role: "iOS Engineer",
   tagline:
-    "Senior Mobile Developer with 10+ years engineering healthcare and telehealth mobile applications in Swift and Objective-C.",
+    "Senior Mobile Developer with 14+ years engineering healthcare and telehealth mobile applications in Swift and Objective-C.",
   // No location provided yet — leave unset; Contact section hides the
   // Location row automatically when this is empty.
   location: "",
@@ -33,7 +33,7 @@ export const about = {
     "Outside of work I like exploring new tools, contributing to side projects, and learning how things work under the hood. I'm currently open to new opportunities — feel free to reach out.",
   ],
   stats: [
-    { label: "Years Experience", value: "10+" },
+    { label: "Years Experience", value: "14+" },
     { label: "Apps Shipped Professionally", value: "10+" },
   ],
   // Companies/apps you've shipped iOS work for — shown as a "worked with"
@@ -43,11 +43,11 @@ export const about = {
   // defaults to "#" — TODO(christian): swap in each app's real App Store
   // (or website) link.
   clients: [
-    { name: "Amwell", logo: "/logos/amwell-patient.png", url: "https://apps.apple.com/us/app/amwell-doctor-visits-24-7/id655783752" },
-    { name: "Amwell for Clinicians", logo: "/logos/amwell-clinicians.png", url: "https://apps.apple.com/us/app/american-well-for-clinicians/id982388638" },
-    { name: "The Boston Globe", logo: "/logos/boston-globe.png", url: "https://apps.apple.com/ca/app/the-boston-globe-epaper/id511127322" },
-    { name: "Blue Cross Medavie", logo: "/logos/blue-cross-medavie.png", url: "https://apps.apple.com/ca/app/blue-cross-mobile/id674013263" },
-    { name: "Wawa", logo: "/logos/wawa.png", url: "https://apps.apple.com/ca/app/wawa/id938319774" },
+    { name: "Amwell", logo: "/logos/amwell-patient.png", url: "#" },
+    { name: "Amwell for Clinicians", logo: "/logos/amwell-clinicians.png", url: "#" },
+    { name: "The Boston Globe", logo: "/logos/boston-globe.png", url: "#" },
+    { name: "Blue Cross Blue Shield", logo: "/logos/blue-cross-medavie.png", url: "#" },
+    { name: "Wawa", logo: "/logos/wawa.png", url: "#" },
   ],
 };
 
@@ -55,11 +55,20 @@ export type Project = {
   name: string;
   category: string;
   description: string;
+  // Full set — the card only shows the first few, the detail modal shows
+  // all of them.
   tags: string[];
   href?: string;
   repo?: string;
   year: string;
   stars?: number;
+  // Everything below is only ever shown in the detail modal, not the card
+  // — it's what makes "view details" actually show more than a bigger
+  // version of the same card.
+  createdAt?: string;
+  updatedAt?: string;
+  forks?: number;
+  license?: string;
 };
 
 // Fallback content, used only if the live GitHub fetch in src/lib/github.ts
@@ -67,54 +76,87 @@ export type Project = {
 // non-fork repos yet. Edit freely, or ignore it — real repos take priority.
 export const placeholderProjects: Project[] = [
   {
-    name: "Clarity",
+    name: "Project One",
+    category: "Web App",
+    description:
+      "A short placeholder description of what this project does and the problem it solves for its users.",
+    tags: ["Next.js", "TypeScript", "PostgreSQL"],
+    href: "#",
+    repo: "#",
+    year: "2026",
+    createdAt: "Jan 2026",
+    updatedAt: "Aug 2026",
+    forks: 3,
+    license: "MIT",
+  },
+  {
+    name: "Project Two",
     category: "Mobile App",
     description:
-      "A UIKit portfolio app that turns pasted text, a shared link/PDF, or a scanned document into a plain-language summary — entirely on-device via ClearDoc. MVVM + Repository + Coordinator architecture.",
-    tags: ["UIKit", "SwiftData", "VisionKit", "MVVM"],
-    href: "https://github.com/Haberdashery1234/Clarity",
-    repo: "https://github.com/Haberdashery1234/Clarity",
-    year: "2026",
+      "A short placeholder description of what this project does and the problem it solves for its users.",
+    tags: ["React Native", "Node.js"],
+    href: "#",
+    repo: "#",
+    year: "2025",
+    createdAt: "Feb 2025",
+    updatedAt: "Nov 2025",
+    forks: 1,
+    license: "MIT",
   },
   {
-    name: "ClearDoc",
-    category: "Framework",
+    name: "Project Three",
+    category: "Open Source",
     description:
-      "An on-device text-clarification framework for iOS 26+, built on Apple's Foundation Models. Give it free text and get back a structured summary — no network call, no data leaves the device.",
-    tags: ["Swift", "Foundation Models", "On-device AI"],
-    href: "https://github.com/Haberdashery1234/ClearDoc",
-    repo: "https://github.com/Haberdashery1234/ClearDoc",
-    year: "2026",
+      "A short placeholder description of what this project does and the problem it solves for its users.",
+    tags: ["TypeScript", "CLI"],
+    href: "#",
+    repo: "#",
+    year: "2025",
+    createdAt: "May 2024",
+    updatedAt: "Mar 2025",
+    forks: 8,
+    license: "Apache-2.0",
   },
   {
-    name: "HABDesignSystem",
-    category: "Design System",
+    name: "Project Four",
+    category: "API / Backend",
     description:
-      "A reusable iOS design system — tokens, a runtime-swappable theming layer, and a UIKit component library — shared across projects instead of rebuilding the same buttons and cards per app.",
-    tags: ["Swift Package", "UIKit", "Design Tokens"],
-    href: "https://github.com/Haberdashery1234/HABDesignSystem",
-    repo: "https://github.com/Haberdashery1234/HABDesignSystem",
-    year: "2026",
-  },
-  {
-    name: "MeterReaderKeeper",
-    category: "Mobile App",
-    description:
-      "A UIKit app for tracking utility meter readings across buildings and floors — scan a meter's QR code, log a reading, and export or email the full history.",
-    tags: ["UIKit", "Core Data", "AVFoundation"],
-    href: "https://github.com/Haberdashery1234/MeterReaderKeeper",
-    repo: "https://github.com/Haberdashery1234/MeterReaderKeeper",
-    year: "2021",
-  },
-  {
-    name: "RogueFantasy",
-    category: "Game",
-    description:
-      "A Godot-based roguelike/RPG prototype with tactical turn-based combat, a file-driven encounter system, full equipment/job restrictions, and auto-saving mid-battle.",
-    tags: ["Godot", "GDScript", "Game Dev"],
-    href: "https://github.com/Haberdashery1234/RogueFantasy",
-    repo: "https://github.com/Haberdashery1234/RogueFantasy",
+      "A short placeholder description of what this project does and the problem it solves for its users.",
+    tags: ["Python", "FastAPI", "Docker"],
+    href: "#",
+    repo: "#",
     year: "2024",
+    createdAt: "Sep 2023",
+    updatedAt: "Jun 2024",
+    forks: 2,
+    license: "MIT",
+  },
+  {
+    name: "Project Five",
+    category: "Design",
+    description:
+      "A short placeholder description of what this project does and the problem it solves for its users.",
+    tags: ["Figma", "Design System"],
+    href: "#",
+    repo: "#",
+    year: "2024",
+    createdAt: "Jan 2024",
+    updatedAt: "Apr 2024",
+    forks: 0,
+  },
+  {
+    name: "Project Six",
+    category: "Web App",
+    description:
+      "A short placeholder description of what this project does and the problem it solves for its users.",
+    tags: ["React", "GraphQL"],
+    href: "#",
+    repo: "#",
+    year: "2023",
+    createdAt: "Jun 2022",
+    updatedAt: "Dec 2023",
+    forks: 5,
+    license: "MIT",
   },
 ];
 
