@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark is the default palette (matches the site's original look). A
+   visitor whose OS/browser is set to light mode gets the light palette
+   below instead — no manual toggle, it just follows their system setting. */
 :root {
   --background: #050505;
   --surface: #0d0d0f;
@@ -9,6 +12,32 @@
   --muted: #94949c;
   --accent: #7c5cff;
   --accent-soft: #7c5cff1a;
+  --danger: #f87171;
+  /* Endpoints for the .glow-text and .bg-grid effects below — swapped per
+     theme since a "bright highlight on dark" look needs different literal
+     colors than a "dark highlight on light" look to stay legible. */
+  --glow-text-from: #ffffff;
+  --grid-line: #ffffff08;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #ffffff;
+    --surface: #f5f5f7;
+    --surface-hover: #ececef;
+    --border: #e2e2e6;
+    --foreground: #0a0a0c;
+    --muted: #6b6b74;
+    /* Slightly deeper than the dark-mode accent so accent-colored text
+       (labels, links) keeps enough contrast against a white background. */
+    --accent: #6633e6;
+    --accent-soft: #6633e61a;
+    --danger: #dc2626;
+    --glow-text-from: #0a0a0c;
+    --grid-line: #00000008;
+    color-scheme: light;
+  }
 }
 
 @theme inline {
@@ -20,6 +49,7 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
     Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
@@ -45,7 +75,7 @@ body {
 }
 
 .glow-text {
-  background: linear-gradient(120deg, #ffffff 30%, var(--accent) 100%);
+  background: linear-gradient(120deg, var(--glow-text-from) 30%, var(--accent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -66,8 +96,8 @@ body {
 
 .bg-grid {
   background-image:
-    linear-gradient(to right, #ffffff08 1px, transparent 1px),
-    linear-gradient(to bottom, #ffffff08 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 

@@ -107,7 +107,7 @@ export default function Contact() {
             </p>
           )}
           {status === "error" && (
-            <p className="text-sm text-red-400">
+            <p className="text-sm text-danger">
               Something went wrong sending that — mind trying again, or
               emailing me directly at{" "}
               <a href={`mailto:${profile.email}`} className="underline">
