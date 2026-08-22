@@ -5,6 +5,9 @@ import { X } from "lucide-react";
 import type { Project } from "@/lib/data";
 import { ArrowUpRight, iconMap } from "@/components/icons";
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export default function ProjectModal({
   project,
   onClose,
@@ -14,26 +17,58 @@ export default function ProjectModal({
 }) {
   const Github = iconMap.github;
   const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Close on Escape, and lock background scroll while open.
+  // Escape closes; Tab/Shift+Tab wrap around within the dialog instead of
+  // escaping into the page behind it (a "focus trap" — standard practice
+  // for a modal dialog per the WAI-ARIA Dialog pattern, since a sighted
+  // keyboard user tabbing "past" a still-open modal into covered-up page
+  // content is disorienting, and a screen reader user could act on content
+  // they can't currently see).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener("keydown", onKeyDown);
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
+    closeButtonRef.current?.focus();
+
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = prevOverflow;
+      // Send focus back to whatever opened the modal (the project card's
+      // link) instead of leaving it wherever it happened to land inside
+      // the now-gone dialog.
+      previouslyFocused?.focus();
     };
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* A sibling overlay (not an ancestor of the dialog) so a click here
           can never be a click "inside" the dialog — no target-equality or
           stopPropagation checks needed. */}
@@ -47,10 +82,10 @@ export default function ProjectModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="project-modal-title"
-        tabIndex={-1}
-        className="card relative w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 sm:p-8 outline-none"
+        className="card relative w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 sm:p-8"
       >
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={onClose}
           aria-label="Close"

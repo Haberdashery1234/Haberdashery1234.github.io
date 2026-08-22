@@ -57,7 +57,7 @@ export default function Contact() {
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full rounded-lg bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors"
+                className="w-full rounded-lg bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/40 transition-colors"
                 placeholder="Jane Doe"
               />
             </div>
@@ -71,7 +71,7 @@ export default function Contact() {
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full rounded-lg bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors"
+                className="w-full rounded-lg bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/40 transition-colors"
                 placeholder="jane@example.com"
               />
             </div>
@@ -86,14 +86,14 @@ export default function Contact() {
               rows={5}
               value={form.message}
               onChange={(e) => setForm({ ...form, message: e.target.value })}
-              className="w-full rounded-lg bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors resize-none"
+              className="w-full rounded-lg bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/40 transition-colors resize-none"
               placeholder="Tell me a bit about your project..."
             />
           </div>
           <button
             type="submit"
             disabled={status === "submitting" || status === "sent"}
-            className="w-full sm:w-auto rounded-full bg-accent px-6 py-3 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto rounded-full bg-accent-button px-6 py-3 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {status === "submitting"
               ? "Sending..."

@@ -6,7 +6,10 @@ import { iconMap } from "@/components/icons";
 
 // Home-screen-style tile colors, one per client — purely decorative, no
 // real logos used (just initials on a color swatch, like an iOS icon).
-const TILE_COLORS = ["#5b6cff", "#0f766e", "#c026d3", "#ea580c", "#0891b2", "#dc2626"];
+// Each one is darkened just enough to keep the white initials text at a
+// 4.5:1+ WCAG AA contrast ratio (a couple of the brighter originals — the
+// blue, orange, and cyan — tested below that against white).
+const TILE_COLORS = ["#3f52f5", "#0f766e", "#c026d3", "#b5430c", "#08718a", "#dc2626"];
 
 function initials(name: string) {
   return name
@@ -35,7 +38,10 @@ function AppIcon({
     <>
       {logo ? (
         <div className="relative h-12 w-12 shadow-lg">
-          <Image src={logo} alt={label} fill sizes="48px" className="object-contain" />
+          {/* alt="" — decorative here, since the visible label right below
+              already gives this link its accessible name; a repeated alt
+              would have screen readers announce the name twice. */}
+          <Image src={logo} alt="" fill sizes="48px" className="object-contain" />
         </div>
       ) : (
         <div
@@ -85,7 +91,7 @@ export default function PhoneMockup() {
   const resume = socials.find((s) => s.icon === "file-text");
 
   const dock: DockItem[] = [
-    { label: "Contact", href: "#contact", external: false, variant: "image", src: "/logos/messages-icon.png" },
+    { label: "Contact", href: "#contact", external: false, variant: "image", src: "/messages-icon.png" },
     ...(github
       ? [{ label: "GitHub", href: github.href, external: true, variant: "badge" as const, color: "#ffffff", icon: iconMap.github }]
       : []),
@@ -141,7 +147,7 @@ export default function PhoneMockup() {
                 </AppIcon>
               )
             )}
-            <AppIcon label="Personal Projects" href="#projects" color="#3f3f46">
+            <AppIcon label="Projects" href="#projects" color="#3f3f46">
               <Folder size={20} />
             </AppIcon>
           </div>

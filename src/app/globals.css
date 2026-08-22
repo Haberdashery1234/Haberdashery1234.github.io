@@ -10,7 +10,16 @@
   --border: #1f1f23;
   --foreground: #f4f4f5;
   --muted: #94949c;
+  /* This purple has to work in two contrast directions at once: as text
+     sitting directly on the near-black page background, and as a solid
+     button fill sitting behind white text. No single shade clears WCAG
+     AA's 4.5:1 in both directions (lightening it for one relationship
+     darkens the other below the line), so it's split into two tokens —
+     --accent is tuned against the page background, --accent-button
+     against white. They're only different in dark mode: in light mode a
+     single dark-enough purple already satisfies both relationships. */
   --accent: #7c5cff;
+  --accent-button: #6033e6;
   --accent-soft: #7c5cff1a;
   --danger: #f87171;
   /* Endpoints for the .glow-text and .bg-grid effects below — swapped per
@@ -32,6 +41,7 @@
     /* Slightly deeper than the dark-mode accent so accent-colored text
        (labels, links) keeps enough contrast against a white background. */
     --accent: #6633e6;
+    --accent-button: #6633e6;
     --accent-soft: #6633e61a;
     --danger: #dc2626;
     --glow-text-from: #0a0a0c;
@@ -48,6 +58,7 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-button: var(--accent-button);
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,

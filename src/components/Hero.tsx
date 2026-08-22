@@ -21,7 +21,7 @@ export default function Hero() {
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
                 href="#contact"
-                className="rounded-full bg-accent px-6 py-3 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                className="rounded-full bg-accent-button px-6 py-3 text-sm font-medium text-white hover:opacity-90 transition-opacity"
               >
                 Let&apos;s Connect
               </a>
