@@ -43,6 +43,7 @@ export const about = {
   // defaults to "#" — TODO(christian): swap in each app's real App Store
   // (or website) link.
   clients: [
+    { name: "Citi", logo: "/logos/citi.png", url: "https://apps.apple.com/us/app/citi-mobile/id301724680" },
     { name: "Amwell", logo: "/logos/amwell-patient.png", url: "https://apps.apple.com/us/app/amwell-doctor-visits-24-7/id655783752" },
     { name: "Amwell for Clinicians", logo: "/logos/amwell-clinicians.png", url: "https://apps.apple.com/us/app/american-well-for-clinicians/id982388638" },
     { name: "The Boston Globe", logo: "/logos/boston-globe.png", url: "https://apps.apple.com/ca/app/the-boston-globe-epaper/id511127322" },
