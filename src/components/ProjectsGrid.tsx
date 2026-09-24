@@ -7,11 +7,12 @@ import { getGithubProjects } from "@/lib/github";
 import { ArrowUpRight, iconMap } from "@/components/icons";
 import { slugify } from "@/lib/slug";
 import ProjectModal from "@/components/ProjectModal";
+import AppIconImage from "@/components/AppIconImage";
+import { useRepoMedia } from "@/lib/useRepoMedia";
 
 const QUERY_KEY = "project";
 
 export default function ProjectsGrid() {
-  const Github = iconMap.github;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -104,88 +105,136 @@ export default function ProjectsGrid() {
           const detailHref = `${pathname}?${params.toString()}#projects`;
 
           return (
-            <article
+            <ProjectCard
               key={project.name}
-              className="card relative p-6 flex flex-col h-full transition-colors hover:border-accent/50"
-            >
-              {/* A "stretched link" covering the whole card, so the card is
-                  clickable/keyboard-focusable as one unit without nesting a
-                  role="button" around the real "Live site"/"Code" links
-                  below — nesting interactive controls like that isn't valid
-                  and confuses assistive tech. It's a real link (not a div
-                  with a click handler), so browser features like "open in
-                  new tab" and middle-click work on it too. */}
-              <a
-                href={detailHref}
-                onClick={(e) => {
-                  e.preventDefault();
-                  openProject(project);
-                }}
-                aria-label={`View details for ${project.name}`}
-                className="absolute inset-0 z-0 rounded-[inherit]"
-              />
-
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-mono text-muted truncate">{project.category}</span>
-                <span className="text-xs font-mono text-muted shrink-0">{project.year}</span>
-              </div>
-
-              <h3 className="mt-4 text-lg font-semibold">{project.name}</h3>
-              <p className="mt-2 text-sm text-muted leading-relaxed flex-1">
-                {project.description}
-              </p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {/* Card shows a preview; the modal shows all of project.tags. */}
-                {project.tags.slice(0, 5).map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs rounded-full border border-border px-2.5 py-1 text-muted"
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {project.tags.length > 5 && (
-                  <span className="text-xs px-1 py-1 text-muted">
-                    +{project.tags.length - 5} more
-                  </span>
-                )}
-              </div>
-
-              {/* Sits above the stretched link (z-10 vs its z-0) so these
-                  stay independently clickable instead of the overlay
-                  swallowing the click. */}
-              <div className="relative z-10 mt-5 flex items-center gap-4 pt-4 border-t border-border">
-                {project.href && project.href !== project.repo && (
-                  <a
-                    href={project.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-accent hover:opacity-80"
-                  >
-                    Live site <ArrowUpRight size={14} />
-                  </a>
-                )}
-                {project.repo && (
-                  <a
-                    href={project.repo}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
-                  >
-                    <Github size={14} /> Code
-                  </a>
-                )}
-                {typeof project.stars === "number" && project.stars > 0 && (
-                  <span className="ml-auto text-xs text-muted">★ {project.stars}</span>
-                )}
-              </div>
-            </article>
+              project={project}
+              detailHref={detailHref}
+              onOpen={openProject}
+            />
           );
         })}
       </div>
 
       {selected && <ProjectModal project={selected} onClose={closeProject} />}
     </>
+  );
+}
+
+function ProjectCard({
+  project,
+  detailHref,
+  onOpen,
+}: {
+  project: Project;
+  detailHref: string;
+  onOpen: (project: Project) => void;
+}) {
+  const Github = iconMap.github;
+  const media = useRepoMedia(project.repo);
+  const screenshot = media.screenshots[0];
+
+  // Hide the preview strip if its image fails, rather than leave an empty
+  // box or a broken-image icon at the top of the card.
+  const [failedScreenshotUrl, setFailedScreenshotUrl] = useState<string | null>(null);
+  const showScreenshot = screenshot && screenshot.url !== failedScreenshotUrl;
+
+  return (
+    <article
+      className="card relative p-6 flex flex-col h-full transition-colors hover:border-accent/50"
+    >
+      {/* A "stretched link" covering the whole card, so the card is
+          clickable/keyboard-focusable as one unit without nesting a
+          role="button" around the real "Live site"/"Code" links
+          below — nesting interactive controls like that isn't valid
+          and confuses assistive tech. It's a real link (not a div
+          with a click handler), so browser features like "open in
+          new tab" and middle-click work on it too. */}
+      <a
+        href={detailHref}
+        onClick={(e) => {
+          e.preventDefault();
+          onOpen(project);
+        }}
+        aria-label={`View details for ${project.name}`}
+        className="absolute inset-0 z-0 rounded-[inherit]"
+      />
+
+      {showScreenshot && (
+        // Full-bleed across the top of the card (negative margins
+        // cancel the card's padding). Contained, not cropped — a
+        // README's first image might be a tall phone shot or a
+        // wide GIF. Decorative: the card's heading names the
+        // project, and the modal carries the descriptive alt text.
+        <div className="-mx-6 -mt-6 mb-5 h-44 rounded-t-2xl bg-surface-hover flex items-center justify-center overflow-hidden px-6 py-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={screenshot.url}
+            alt=""
+            loading="lazy"
+            onError={() => setFailedScreenshotUrl(screenshot.url)}
+            className="max-h-full max-w-full object-contain rounded-md shadow-md"
+          />
+        </div>
+      )}
+
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs font-mono text-muted truncate">{project.category}</span>
+        <span className="text-xs font-mono text-muted shrink-0">{project.year}</span>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        {media.iconUrl && <AppIconImage src={media.iconUrl} className="h-10 w-10" />}
+        <h3 className="text-lg font-semibold">{project.name}</h3>
+      </div>
+      <p className="mt-2 text-sm text-muted leading-relaxed flex-1">
+        {project.description}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {/* Card shows a preview; the modal shows all of project.tags. */}
+        {project.tags.slice(0, 5).map((tag) => (
+          <span
+            key={tag}
+            className="text-xs rounded-full border border-border px-2.5 py-1 text-muted"
+          >
+            {tag}
+          </span>
+        ))}
+        {project.tags.length > 5 && (
+          <span className="text-xs px-1 py-1 text-muted">
+            +{project.tags.length - 5} more
+          </span>
+        )}
+      </div>
+
+      {/* Sits above the stretched link (z-10 vs its z-0) so these
+          stay independently clickable instead of the overlay
+          swallowing the click. */}
+      <div className="relative z-10 mt-5 flex items-center gap-4 pt-4 border-t border-border">
+        {project.href && project.href !== project.repo && (
+          <a
+            href={project.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-accent hover:opacity-80"
+          >
+            Live site <ArrowUpRight size={14} />
+          </a>
+        )}
+        {project.repo && (
+          <a
+            href={project.repo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+          >
+            <Github size={14} /> Code
+          </a>
+        )}
+        {typeof project.stars === "number" && project.stars > 0 && (
+          <span className="ml-auto text-xs text-muted">★ {project.stars}</span>
+        )}
+      </div>
+    </article>
   );
 }

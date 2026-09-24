@@ -1,4 +1,4 @@
-import { profile, type Project } from "@/lib/data";
+import { profile, projectIcons, type Project } from "@/lib/data";
 
 // Shape of the fields we use from GitHub's REST API:
 // GET https://api.github.com/users/{username}/repos
@@ -161,17 +161,6 @@ export async function getRepoLanguages(
   }
 }
 
-/**
- * GitHub auto-generates a social-preview card image for every public repo
- * — the same image GitHub uses for link previews — even if the owner
- * never set a custom one. This is a stable pattern GitHub's own site uses,
- * but it isn't part of the documented, versioned REST API, so treat it as
- * "reliable in practice" rather than a guaranteed-forever contract.
- */
-export function getRepoSocialPreviewUrl(username: string, repoName: string): string {
-  return `https://opengraph.githubassets.com/1/${encodeURIComponent(username)}/${encodeURIComponent(repoName)}`;
-}
-
 // Badge/status images (build status, npm version, license, coverage, social
 // buttons) are almost always the first images in a README — none of them
 // are the "screenshot" a visitor actually wants to see, so any image whose
@@ -182,54 +171,141 @@ const BADGE_IMAGE_PATTERN =
 
 export type Screenshot = { url: string; alt: string };
 
+/** A file's URL on GitHub's raw-content host at the default branch. Raw
+ * downloads are served outside the REST API, so they don't count against
+ * its 60/hour unauthenticated rate limit the way api.github.com calls do. */
+export function rawRepoFileUrl(username: string, repoName: string, path: string): string {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  return `https://raw.githubusercontent.com/${encodeURIComponent(username)}/${encodeURIComponent(repoName)}/HEAD/${encodedPath}`;
+}
+
+/** A project's app icon URL, from the repo → path list in data.ts, or null
+ * if the repo isn't listed there (or `repoUrl` isn't a GitHub repo). */
+export function getProjectIconUrl(repoUrl: string | undefined): string | null {
+  const target = parseGithubRepoUrl(repoUrl);
+  const path = target && projectIcons[target.repo];
+  return target && path ? rawRepoFileUrl(target.owner, target.repo, path) : null;
+}
+
+// Screenshots follow a fixed naming convention in each repo:
+// screenshots/iPhone1.png, screenshots/iPhone2.png, …, then
+// screenshots/iPad1.png, … — numbered from 1 with no gaps.
+const SCREENSHOT_DEVICES = ["iPhone", "iPad"] as const;
+// Safety cap on the probe loop below, in case a repo ever has a huge set.
+const MAX_SCREENSHOTS_PER_DEVICE = 10;
+
+/**
+ * A repo's screenshots: the conventional screenshots/iPhoneN.png and
+ * screenshots/iPadN.png files if it has any (iPhone first), otherwise
+ * whatever non-badge images its README contains. Empty for repos with
+ * neither — normal for a framework or CLI tool, not a failure.
+ *
+ * Makes no REST API calls: everything is read from raw.githubusercontent.com.
+ */
+export function getRepoScreenshots(username: string, repoName: string): Promise<Screenshot[]> {
+  return memoized(`screenshots:${username}/${repoName}`, [], async () => {
+    const byDevice = await Promise.all(
+      SCREENSHOT_DEVICES.map((device) => probeScreenshotSeries(username, repoName, device))
+    );
+    const conventional = byDevice.flat();
+    return conventional.length > 0
+      ? conventional
+      : getReadmeScreenshots(username, repoName);
+  });
+}
+
+/** Checks screenshots/{device}1.png, {device}2.png, … in order and stops
+ * at the first one that doesn't exist. A HEAD request is enough — only the
+ * status matters, and the <img> tags download the actual image later. */
+async function probeScreenshotSeries(
+  username: string,
+  repoName: string,
+  device: string
+): Promise<Screenshot[]> {
+  const found: Screenshot[] = [];
+  for (let i = 1; i <= MAX_SCREENSHOTS_PER_DEVICE; i++) {
+    const url = rawRepoFileUrl(username, repoName, `screenshots/${device}${i}.png`);
+    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(8000) });
+    if (!res.ok) break;
+    found.push({ url, alt: `${device} screenshot ${i}` });
+  }
+  return found;
+}
+
+export type Readme = { markdown: string; url: string };
+
+/**
+ * A repo's README.md, or null if it has none. Read from the raw host
+ * rather than the /readme API endpoint, so a README under another filename
+ * (readme.md, README.rst) isn't found — an acceptable trade for not
+ * spending a rate-limited API call per repo. Memoized, so the screenshot
+ * fallback below and the detail modal's README view share one download.
+ */
+export function getRepoReadme(username: string, repoName: string): Promise<Readme | null> {
+  return memoized(`readme:${username}/${repoName}`, null, async () => {
+    const url = rawRepoFileUrl(username, repoName, "README.md");
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    // 404 = no README.md, a real answer; anything else is worth retrying.
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`readme ${res.status}`);
+    return { markdown: await res.text(), url };
+  });
+}
+
 /**
  * Collects every non-badge image in a repo's README (markdown `![]()`
  * syntax or a raw `<img>` tag — both are common), in document order, as
- * absolute URLs with whatever alt text the README gave them. Returns an
- * empty array if the repo has no README, no images, or only badge images.
- * Many project READMEs include screenshots or a demo GIF, but plenty don't
- * (a CLI tool or backend library, for instance), so an empty result here
- * is normal and expected, not a failure.
+ * absolute URLs with whatever alt text the README gave them.
  */
-export async function getRepoReadmeScreenshots(
-  username: string,
-  repoName: string
-): Promise<Screenshot[]> {
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${encodeURIComponent(username)}/${encodeURIComponent(repoName)}/readme`,
-      {
-        headers: { Accept: "application/vnd.github+json" },
-        signal: AbortSignal.timeout(8000),
-      }
-    );
-    if (!res.ok) return [];
+async function getReadmeScreenshots(username: string, repoName: string): Promise<Screenshot[]> {
+  const readme = await getRepoReadme(username, repoName);
+  if (!readme) return [];
 
-    const data = (await res.json()) as {
-      content?: string;
-      encoding?: string;
-      download_url?: string | null;
-    };
-    if (data.encoding !== "base64" || !data.content) return [];
-
-    const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
-    const markdown = new TextDecoder("utf-8").decode(bytes);
-
-    // Resolve relative paths, drop anything unresolvable, and dedupe — a
-    // README sometimes repeats the same image (e.g. a hero shot up top that
-    // shows up again in a gallery further down).
-    const seen = new Set<string>();
-    const screenshots: Screenshot[] = [];
-    for (const image of findScreenshotImages(markdown)) {
-      const url = resolveReadmeAssetUrl(image.url, data.download_url ?? null);
-      if (url && !seen.has(url)) {
-        seen.add(url);
-        screenshots.push({ url, alt: image.alt });
-      }
+  // Resolve relative paths, drop anything unresolvable, and dedupe — a
+  // README sometimes repeats the same image (e.g. a hero shot up top that
+  // shows up again in a gallery further down).
+  const seen = new Set<string>();
+  const screenshots: Screenshot[] = [];
+  for (const image of findScreenshotImages(readme.markdown)) {
+    const url = resolveReadmeAssetUrl(image.url, readme.url);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      screenshots.push({ url, alt: image.alt });
     }
-    return screenshots;
+  }
+  return screenshots;
+}
+
+// Each project card looks up its repo's screenshots, and the detail modal
+// needs the same list (and README) again — memoizing the promise lets the
+// modal reuse the card's result (or join its still-in-flight request)
+// instead of re-downloading. Failed loads aren't kept, so a transient
+// error gets retried.
+const inFlight = new Map<string, Promise<unknown>>();
+
+function memoized<T>(key: string, fallback: T, load: () => Promise<T>): Promise<T> {
+  const existing = inFlight.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const promise = load().catch(() => {
+    inFlight.delete(key);
+    return fallback;
+  });
+  inFlight.set(key, promise);
+  return promise;
+}
+
+/** Pulls {owner, repo} out of a "https://github.com/owner/repo" URL, or
+ * null if it isn't one (e.g. the placeholder projects' repo is just "#"). */
+export function parseGithubRepoUrl(url: string | undefined): { owner: string; repo: string } | null {
+  if (!url) return null;
+  try {
+    const { hostname, pathname } = new URL(url);
+    if (hostname !== "github.com") return null;
+    const [owner, repo] = pathname.split("/").filter(Boolean);
+    return owner && repo ? { owner, repo } : null;
   } catch {
-    return [];
+    return null;
   }
 }
 

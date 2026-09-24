@@ -72,6 +72,16 @@ export type Project = {
   license?: string;
 };
 
+// App icons shown on the project cards and detail modal, keyed by GitHub
+// repo name (exact, case-sensitive). The value is the icon file's path
+// inside that repo — it's loaded straight from GitHub's raw-content host,
+// so there's nothing to copy into /public. Repos not listed here just show
+// no icon. For an Xcode project, point at the 1024px PNG in the asset
+// catalog's AppIcon.appiconset.
+export const projectIcons: Record<string, string> = {
+  MeterReaderKeeper: "MeterReaderKeeper/Assets.xcassets/AppIcon.appiconset/AppIcon-1024@1x.png",
+};
+
 // Fallback content, used only if the live GitHub fetch in src/lib/github.ts
 // fails (offline, rate-limited, etc.) or the account has no public,
 // non-fork repos yet. Edit freely, or ignore it — real repos take priority.

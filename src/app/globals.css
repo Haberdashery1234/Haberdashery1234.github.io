@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Provides the `prose` class used to style rendered README markdown in the
+   project detail modal. */
+@plugin "@tailwindcss/typography";
 
 /* Dark is the default palette (matches the site's original look). A
    visitor whose OS/browser is set to light mode gets the light palette
@@ -103,6 +106,27 @@ body {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: var(--surface-hover);
   transform: translateY(-2px);
+}
+
+/* Points the typography plugin's colors at the site's own tokens instead of
+   its built-in gray palette, so rendered markdown follows the light/dark
+   switch above automatically (no separate prose-invert needed). */
+.prose-site {
+  --tw-prose-body: var(--muted);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-lead: var(--muted);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--muted);
+  --tw-prose-bullets: var(--border);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-pre-bg: var(--background);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
 }
 
 .bg-grid {

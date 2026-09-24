@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Project } from "@/lib/data";
 import { ArrowUpRight, iconMap } from "@/components/icons";
 import ScreenshotCarousel from "@/components/ScreenshotCarousel";
-import {
-  getRepoLanguages,
-  getRepoReadmeScreenshots,
-  getRepoSocialPreviewUrl,
-  type Screenshot,
-} from "@/lib/github";
+import AppIconImage from "@/components/AppIconImage";
+import ReadmeView from "@/components/ReadmeView";
+import { getRepoLanguages, parseGithubRepoUrl } from "@/lib/github";
+import { useRepoMedia } from "@/lib/useRepoMedia";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -28,20 +26,6 @@ const LANGUAGE_COLORS = [
   "#a855f7",
   "#14b8a6",
 ];
-
-/** Pulls {owner, repo} out of a "https://github.com/owner/repo" URL, or
- * null if it isn't one (e.g. the placeholder projects' repo is just "#"). */
-function parseGithubRepoUrl(url: string | undefined): { owner: string; repo: string } | null {
-  if (!url) return null;
-  try {
-    const { hostname, pathname } = new URL(url);
-    if (hostname !== "github.com") return null;
-    const [owner, repo] = pathname.split("/").filter(Boolean);
-    return owner && repo ? { owner, repo } : null;
-  } catch {
-    return null;
-  }
-}
 
 export default function ProjectModal({
   project,
@@ -72,43 +56,11 @@ export default function ProjectModal({
     };
   }, [project.repo]);
 
-  // Preview image: GitHub's auto-generated social-preview card shows
-  // immediately — it's a plain URL, derived synchronously from the repo, no
-  // fetch or state needed — then gets replaced by a carousel of real
-  // screenshots pulled from the README if any turn up, the same "show
-  // something now, upgrade it if a better version arrives shortly after"
-  // approach used for the placeholder-then-live project cards.
-  const fallbackImageUrl = useMemo(() => {
-    const target = parseGithubRepoUrl(project.repo);
-    return target ? getRepoSocialPreviewUrl(target.owner, target.repo) : null;
-  }, [project.repo]);
+  const media = useRepoMedia(project.repo);
 
-  // Tagged with the repo they were fetched for, so switching to a different
-  // project before this fetch resolves can't briefly show the previous
-  // project's screenshots — handled by comparing against the current repo
-  // below, rather than by resetting this state with a synchronous setState
-  // call in the effect (which the current-project screenshots arriving
-  // async in the .then() below already makes unnecessary).
-  const [fetchedScreenshots, setFetchedScreenshots] = useState<{
-    repo: string | undefined;
-    items: Screenshot[];
-  } | null>(null);
-
-  useEffect(() => {
-    const target = parseGithubRepoUrl(project.repo);
-    if (!target) return;
-    let cancelled = false;
-    getRepoReadmeScreenshots(target.owner, target.repo).then((items) => {
-      if (!cancelled) setFetchedScreenshots({ repo: project.repo, items });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [project.repo]);
-
-  // Screenshot URLs that failed to load — filtered out so one dead link in
-  // a README doesn't leave a broken slide. If every one fails, this falls
-  // through to the social-preview card below as if there were none.
+  // Screenshot URLs that failed to load — filtered out so one dead image
+  // link doesn't leave a broken slide. If every one fails, the modal
+  // switches to its single-column no-screenshots layout.
   const [failedScreenshotUrls, setFailedScreenshotUrls] = useState<ReadonlySet<string>>(
     () => new Set()
   );
@@ -116,18 +68,7 @@ export default function ProjectModal({
     setFailedScreenshotUrls((prev) => new Set(prev).add(url));
   }, []);
 
-  const screenshots =
-    fetchedScreenshots && fetchedScreenshots.repo === project.repo
-      ? fetchedScreenshots.items.filter((s) => !failedScreenshotUrls.has(s.url))
-      : [];
-  const imageUrl = screenshots.length > 0 ? null : fallbackImageUrl;
-
-  // Which URL failed to load, if any — compared against the current
-  // imageUrl below instead of tracked as a plain boolean, so a new image
-  // (a new project opened) automatically counts as "not failed" with no
-  // explicit reset.
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const imageFailed = imageUrl !== null && imageUrl === failedUrl;
+  const screenshots = media.screenshots.filter((s) => !failedScreenshotUrls.has(s.url));
 
   // Escape closes; Tab/Shift+Tab wrap around within the dialog instead of
   // escaping into the page behind it (a "focus trap" — standard practice
@@ -177,8 +118,20 @@ export default function ProjectModal({
     };
   }, [onClose]);
 
+  const repoTarget = parseGithubRepoUrl(project.repo);
+  const hasScreenshots = screenshots.length > 0;
+  const sortedLanguages = Object.entries(languages).sort(([, a], [, b]) => b - a);
+
+  const stats = [
+    typeof project.stars === "number" && { label: "Stars", value: `★ ${project.stars}` },
+    !!project.forks && { label: "Forks", value: String(project.forks) },
+    project.createdAt && { label: "Created", value: project.createdAt },
+    project.updatedAt && { label: "Last updated", value: project.updatedAt },
+    project.license && { label: "License", value: project.license },
+  ].filter((s): s is { label: string; value: string } => Boolean(s));
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       {/* A sibling overlay (not an ancestor of the dialog) so a click here
           can never be a click "inside" the dialog — no target-equality or
           stopPropagation checks needed. */}
@@ -187,99 +140,118 @@ export default function ProjectModal({
         onMouseDown={onClose}
       />
 
+      {/* Two layouts: with screenshots, a wide two-pane dialog on desktop —
+          the carousel gets its own full-height column so phone shots show
+          near real size, and only the details pane scrolls. Below lg (and
+          for repos without screenshots) it's a single scrolling column. */}
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="project-modal-title"
-        className="card relative w-full max-w-lg max-h-[85vh] overflow-y-auto"
+        className={`relative w-full max-h-[92vh] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl shadow-black/50 ${
+          hasScreenshots
+            ? "max-w-6xl lg:h-[min(92vh,860px)] lg:flex lg:overflow-hidden"
+            : "max-w-3xl"
+        }`}
       >
         <button
           ref={closeButtonRef}
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-3 right-3 z-10 rounded-full bg-black/40 p-1.5 text-white backdrop-blur hover:bg-black/60 transition-colors"
+          className="absolute top-3 right-3 z-10 rounded-full bg-black/50 p-2 text-white backdrop-blur hover:bg-black/70 transition-colors"
         >
           <X size={18} />
         </button>
 
-        {screenshots.length > 0 && (
+        {hasScreenshots && (
           <ScreenshotCarousel
             key={project.repo}
             screenshots={screenshots}
             projectName={project.name}
             onImageError={onScreenshotError}
+            className="h-[28rem] sm:h-[34rem] lg:h-full lg:w-[44%] lg:shrink-0 bg-surface-hover border-b border-border lg:border-b-0 lg:border-r"
           />
         )}
 
-        {imageUrl && !imageFailed && (
-          // GitHub's social-preview card — decorative (the heading right
-          // below names the project), and purely best-effort: hide it
-          // entirely rather than show a broken-image icon if it fails to
-          // load.
-          //
-          // Plain <img> rather than next/image is intentional here: this is
-          // a static export with images.unoptimized already set (so
-          // next/image's optimizer never runs anyway), and the URL is
-          // whatever domain GitHub or a repo's README happens to host the
-          // image on — an arbitrary, unbounded set of hosts that next/image
-          // would need every one of listed in next.config.ts's
-          // images.remotePatterns to allow.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt=""
-            onError={() => setFailedUrl(imageUrl)}
-            className="w-full aspect-video object-cover rounded-t-2xl bg-surface-hover"
-          />
-        )}
-
-        <div className="p-6 sm:p-8">
-          <div className="flex items-start justify-between gap-2 pr-8">
-            <span className="text-xs font-mono text-muted truncate">{project.category}</span>
-            <span className="text-xs font-mono text-muted shrink-0">{project.year}</span>
+        <div className="p-6 sm:p-8 lg:flex-1 lg:overflow-y-auto">
+          <div className="flex items-center gap-4 pr-10">
+            {media.iconUrl && <AppIconImage src={media.iconUrl} className="h-16 w-16" />}
+            <div className="min-w-0">
+              <p className="text-xs font-mono text-muted truncate">
+                {project.category} · {project.year}
+              </p>
+              <h3 id="project-modal-title" className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
+                {project.name}
+              </h3>
+            </div>
           </div>
 
-          <h3 id="project-modal-title" className="mt-3 text-2xl font-semibold pr-8">
-            {project.name}
-          </h3>
+          <p className="mt-5 text-base text-muted leading-relaxed">{project.description}</p>
 
-          <p className="mt-4 text-sm sm:text-base text-muted leading-relaxed">
-            {project.description}
-          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            {project.repo && (
+              <a
+                href={project.repo}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-accent-button px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+              >
+                <Github size={16} /> View code
+              </a>
+            )}
+            {project.href && project.href !== project.repo && (
+              <a
+                href={project.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:border-accent transition-colors"
+              >
+                Live site <ArrowUpRight size={16} />
+              </a>
+            )}
+          </div>
 
-          {(project.createdAt || project.updatedAt || project.license || !!project.forks) && (
-            <dl className="mt-5 grid grid-cols-2 gap-3 text-xs">
-              {project.createdAt && (
-                <div>
-                  <dt className="text-muted">Created</dt>
-                  <dd className="mt-0.5 text-foreground/90">{project.createdAt}</dd>
+          {stats.length > 0 && (
+            <dl className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {stats.map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-border px-3 py-2.5">
+                  <dt className="text-xs text-muted">{stat.label}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-foreground truncate">{stat.value}</dd>
                 </div>
-              )}
-              {project.updatedAt && (
-                <div>
-                  <dt className="text-muted">Last updated</dt>
-                  <dd className="mt-0.5 text-foreground/90">{project.updatedAt}</dd>
-                </div>
-              )}
-              {!!project.forks && (
-                <div>
-                  <dt className="text-muted">Forks</dt>
-                  <dd className="mt-0.5 text-foreground/90">{project.forks}</dd>
-                </div>
-              )}
-              {project.license && (
-                <div>
-                  <dt className="text-muted">License</dt>
-                  <dd className="mt-0.5 text-foreground/90">{project.license}</dd>
-                </div>
-              )}
+              ))}
             </dl>
           )}
 
+          {sortedLanguages.length > 0 && (
+            <div className="mt-6">
+              <p className="text-xs text-muted mb-2">Languages</p>
+              <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-hover">
+                {sortedLanguages.map(([language, pct], i) => (
+                  <div
+                    key={language}
+                    style={{ width: `${pct}%`, backgroundColor: LANGUAGE_COLORS[i % LANGUAGE_COLORS.length] }}
+                    title={`${language} ${pct}%`}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                {sortedLanguages.map(([language, pct], i) => (
+                  <span key={language} className="inline-flex items-center gap-1.5 text-xs text-muted">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: LANGUAGE_COLORS[i % LANGUAGE_COLORS.length] }}
+                    />
+                    {language} {pct}%
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {project.tags.length > 0 && (
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-6 flex flex-wrap gap-2">
               {project.tags.map((tag) => (
                 <span
                   key={tag}
@@ -291,61 +263,12 @@ export default function ProjectModal({
             </div>
           )}
 
-          {Object.keys(languages).length > 0 && (
-            <div className="mt-5">
-              <p className="text-xs text-muted mb-2">Languages</p>
-              <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-hover">
-                {Object.entries(languages)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([language, pct], i) => (
-                    <div
-                      key={language}
-                      style={{ width: `${pct}%`, backgroundColor: LANGUAGE_COLORS[i % LANGUAGE_COLORS.length] }}
-                      title={`${language} ${pct}%`}
-                    />
-                  ))}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                {Object.entries(languages)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([language, pct], i) => (
-                    <span key={language} className="inline-flex items-center gap-1.5 text-xs text-muted">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: LANGUAGE_COLORS[i % LANGUAGE_COLORS.length] }}
-                      />
-                      {language} {pct}%
-                    </span>
-                  ))}
-              </div>
-            </div>
+          {repoTarget && (
+            <section className="mt-8 pt-8 border-t border-border">
+              <h4 className="text-sm font-mono text-accent mb-4">README</h4>
+              <ReadmeView owner={repoTarget.owner} repo={repoTarget.repo} />
+            </section>
           )}
-
-          <div className="mt-6 flex items-center gap-4 pt-5 border-t border-border">
-            {project.href && project.href !== project.repo && (
-              <a
-                href={project.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-accent hover:opacity-80"
-              >
-                Live site <ArrowUpRight size={14} />
-              </a>
-            )}
-            {project.repo && (
-              <a
-                href={project.repo}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
-              >
-                <Github size={14} /> Code
-              </a>
-            )}
-            {typeof project.stars === "number" && project.stars > 0 && (
-              <span className="ml-auto text-xs text-muted">★ {project.stars}</span>
-            )}
-          </div>
         </div>
       </div>
     </div>
