@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Project } from "@/lib/data";
 import { ArrowUpRight, iconMap } from "@/components/icons";
-import { getRepoLanguages, getRepoReadmeScreenshot, getRepoSocialPreviewUrl } from "@/lib/github";
+import ScreenshotCarousel from "@/components/ScreenshotCarousel";
+import {
+  getRepoLanguages,
+  getRepoReadmeScreenshots,
+  getRepoSocialPreviewUrl,
+  type Screenshot,
+} from "@/lib/github";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -68,44 +74,58 @@ export default function ProjectModal({
 
   // Preview image: GitHub's auto-generated social-preview card shows
   // immediately — it's a plain URL, derived synchronously from the repo, no
-  // fetch or state needed — then gets replaced by a real screenshot pulled
-  // from the README if one turns up, the same "show something now, upgrade
-  // it if a better version arrives shortly after" approach used for the
-  // placeholder-then-live project cards.
+  // fetch or state needed — then gets replaced by a carousel of real
+  // screenshots pulled from the README if any turn up, the same "show
+  // something now, upgrade it if a better version arrives shortly after"
+  // approach used for the placeholder-then-live project cards.
   const fallbackImageUrl = useMemo(() => {
     const target = parseGithubRepoUrl(project.repo);
     return target ? getRepoSocialPreviewUrl(target.owner, target.repo) : null;
   }, [project.repo]);
 
-  // Tagged with the repo it was fetched for, so switching to a different
+  // Tagged with the repo they were fetched for, so switching to a different
   // project before this fetch resolves can't briefly show the previous
-  // project's screenshot — handled by comparing against the current repo
+  // project's screenshots — handled by comparing against the current repo
   // below, rather than by resetting this state with a synchronous setState
-  // call in the effect (which the current-project screenshot arriving async
-  // in the .then() below already makes unnecessary).
-  const [screenshot, setScreenshot] = useState<{ repo: string | undefined; url: string } | null>(
-    null
-  );
+  // call in the effect (which the current-project screenshots arriving
+  // async in the .then() below already makes unnecessary).
+  const [fetchedScreenshots, setFetchedScreenshots] = useState<{
+    repo: string | undefined;
+    items: Screenshot[];
+  } | null>(null);
 
   useEffect(() => {
     const target = parseGithubRepoUrl(project.repo);
     if (!target) return;
     let cancelled = false;
-    getRepoReadmeScreenshot(target.owner, target.repo).then((result) => {
-      if (!cancelled && result) setScreenshot({ repo: project.repo, url: result });
+    getRepoReadmeScreenshots(target.owner, target.repo).then((items) => {
+      if (!cancelled) setFetchedScreenshots({ repo: project.repo, items });
     });
     return () => {
       cancelled = true;
     };
   }, [project.repo]);
 
-  const screenshotUrl = screenshot && screenshot.repo === project.repo ? screenshot.url : null;
-  const imageUrl = screenshotUrl ?? fallbackImageUrl;
+  // Screenshot URLs that failed to load — filtered out so one dead link in
+  // a README doesn't leave a broken slide. If every one fails, this falls
+  // through to the social-preview card below as if there were none.
+  const [failedScreenshotUrls, setFailedScreenshotUrls] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const onScreenshotError = useCallback((url: string) => {
+    setFailedScreenshotUrls((prev) => new Set(prev).add(url));
+  }, []);
+
+  const screenshots =
+    fetchedScreenshots && fetchedScreenshots.repo === project.repo
+      ? fetchedScreenshots.items.filter((s) => !failedScreenshotUrls.has(s.url))
+      : [];
+  const imageUrl = screenshots.length > 0 ? null : fallbackImageUrl;
 
   // Which URL failed to load, if any — compared against the current
   // imageUrl below instead of tracked as a plain boolean, so a new image
-  // (a new project opened, or a screenshot arriving to replace the
-  // fallback) automatically counts as "not failed" with no explicit reset.
+  // (a new project opened) automatically counts as "not failed" with no
+  // explicit reset.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const imageFailed = imageUrl !== null && imageUrl === failedUrl;
 
@@ -184,11 +204,20 @@ export default function ProjectModal({
           <X size={18} />
         </button>
 
+        {screenshots.length > 0 && (
+          <ScreenshotCarousel
+            key={project.repo}
+            screenshots={screenshots}
+            projectName={project.name}
+            onImageError={onScreenshotError}
+          />
+        )}
+
         {imageUrl && !imageFailed && (
-          // GitHub's social-preview card or a screenshot pulled from the
-          // README — decorative (the heading right below names the
-          // project), and purely best-effort: hide it entirely rather
-          // than show a broken-image icon if it fails to load.
+          // GitHub's social-preview card — decorative (the heading right
+          // below names the project), and purely best-effort: hide it
+          // entirely rather than show a broken-image icon if it fails to
+          // load.
           //
           // Plain <img> rather than next/image is intentional here: this is
           // a static export with images.unoptimized already set (so

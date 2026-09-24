@@ -180,18 +180,21 @@ export function getRepoSocialPreviewUrl(username: string, repoName: string): str
 const BADGE_IMAGE_PATTERN =
   /shields\.io|badge|codecov\.io|coveralls\.io|travis-ci|circleci\.com|opencollective\.com|patreon\.com|paypal\.com|buymeacoffee\.com|discord(app)?\.com|twitter\.com|x\.com\//i;
 
+export type Screenshot = { url: string; alt: string };
+
 /**
- * Looks for the first non-badge image in a repo's README (markdown
- * `![]()` syntax or a raw `<img>` tag — both are common) and returns its
- * absolute URL, or null if the README has no README, no images, or only
- * badge images. Many project READMEs lead with a screenshot or demo GIF,
- * but plenty don't (a CLI tool or backend library, for instance), so a
- * null result here is normal and expected, not a failure.
+ * Collects every non-badge image in a repo's README (markdown `![]()`
+ * syntax or a raw `<img>` tag — both are common), in document order, as
+ * absolute URLs with whatever alt text the README gave them. Returns an
+ * empty array if the repo has no README, no images, or only badge images.
+ * Many project READMEs include screenshots or a demo GIF, but plenty don't
+ * (a CLI tool or backend library, for instance), so an empty result here
+ * is normal and expected, not a failure.
  */
-export async function getRepoReadmeScreenshot(
+export async function getRepoReadmeScreenshots(
   username: string,
   repoName: string
-): Promise<string | null> {
+): Promise<Screenshot[]> {
   try {
     const res = await fetch(
       `https://api.github.com/repos/${encodeURIComponent(username)}/${encodeURIComponent(repoName)}/readme`,
@@ -200,44 +203,56 @@ export async function getRepoReadmeScreenshot(
         signal: AbortSignal.timeout(8000),
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) return [];
 
     const data = (await res.json()) as {
       content?: string;
       encoding?: string;
       download_url?: string | null;
     };
-    if (data.encoding !== "base64" || !data.content) return null;
+    if (data.encoding !== "base64" || !data.content) return [];
 
     const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
     const markdown = new TextDecoder("utf-8").decode(bytes);
 
-    const imageUrl = findFirstScreenshotUrl(markdown);
-    if (!imageUrl) return null;
-
-    return resolveReadmeAssetUrl(imageUrl, data.download_url ?? null);
+    // Resolve relative paths, drop anything unresolvable, and dedupe — a
+    // README sometimes repeats the same image (e.g. a hero shot up top that
+    // shows up again in a gallery further down).
+    const seen = new Set<string>();
+    const screenshots: Screenshot[] = [];
+    for (const image of findScreenshotImages(markdown)) {
+      const url = resolveReadmeAssetUrl(image.url, data.download_url ?? null);
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        screenshots.push({ url, alt: image.alt });
+      }
+    }
+    return screenshots;
   } catch {
-    return null;
+    return [];
   }
 }
 
-function findFirstScreenshotUrl(markdown: string): string | null {
-  const candidates: { index: number; url: string }[] = [];
+function findScreenshotImages(markdown: string): Screenshot[] {
+  const candidates: { index: number; url: string; alt: string }[] = [];
 
-  const mdImagePattern = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+  const mdImagePattern = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
   for (const match of markdown.matchAll(mdImagePattern)) {
-    candidates.push({ index: match.index, url: match[1] });
+    candidates.push({ index: match.index, url: match[2], alt: match[1].trim() });
   }
 
-  const htmlImagePattern = /<img[^>]+src=["']([^"']+)["']/gi;
+  const htmlImagePattern = /<img[^>]+>/gi;
   for (const match of markdown.matchAll(htmlImagePattern)) {
-    candidates.push({ index: match.index, url: match[1] });
+    const src = match[0].match(/\ssrc=["']([^"']+)["']/i)?.[1];
+    if (!src) continue;
+    const alt = match[0].match(/\salt=["']([^"']*)["']/i)?.[1] ?? "";
+    candidates.push({ index: match.index, url: src, alt: alt.trim() });
   }
 
-  candidates.sort((a, b) => a.index - b.index);
-
-  const firstNonBadge = candidates.find((c) => !BADGE_IMAGE_PATTERN.test(c.url));
-  return firstNonBadge?.url ?? null;
+  return candidates
+    .sort((a, b) => a.index - b.index)
+    .filter((c) => !BADGE_IMAGE_PATTERN.test(c.url))
+    .map(({ url, alt }) => ({ url, alt }));
 }
 
 /** A README image reference can be a relative path (e.g. "assets/demo.png")
