@@ -80,6 +80,7 @@ export type Project = {
 // catalog's AppIcon.appiconset.
 export const projectIcons: Record<string, string> = {
   MeterReaderKeeper: "MeterReaderKeeper/Assets.xcassets/AppIcon.appiconset/AppIcon-1024@1x.png",
+  TimeCalculator: "TimeCalculator/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
 };
 
 // Fallback content, used only if the live GitHub fetch in src/lib/github.ts
