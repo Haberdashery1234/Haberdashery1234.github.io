@@ -72,6 +72,26 @@ export type Project = {
   license?: string;
 };
 
+export type PublishedAppConfig = {
+  // The number in the app's App Store URL — e.g. "938319774" from
+  // https://apps.apple.com/us/app/wawa/id938319774
+  appStoreId: string;
+  // Two-letter storefront the app is listed in. Defaults to "us"; set it
+  // if the app is only available in another country's store.
+  country?: string;
+  // Optional line about your part in it (e.g. "Solo developer — design,
+  // development, and release"), shown on the card and in the detail view.
+  role?: string;
+};
+
+// Your own apps on the App Store, shown in the "Published Projects" section.
+// Just list the IDs — the name, icon, screenshots, description, rating,
+// and version are pulled from the App Store automatically at build time
+// (see src/lib/appStore.ts), so no source code or GitHub repo is needed.
+// The section and its nav link are hidden while this list is empty.
+// Changes on the App Store show up on the site after the next deploy.
+export const publishedApps: PublishedAppConfig[] = [];
+
 // App icons shown on the project cards and detail modal, keyed by GitHub
 // repo name (exact, case-sensitive). The value is the icon file's path
 // inside that repo — it's loaded straight from GitHub's raw-content host,
@@ -202,6 +222,7 @@ export const skills = {
 
 export const nav = [
   { label: "About", href: "#about" },
+  ...(publishedApps.length > 0 ? [{ label: "Apps", href: "#apps" }] : []),
   { label: "Projects", href: "#projects" },
   { label: "Skills", href: "#skills" },
   { label: "Contact", href: "#contact" },

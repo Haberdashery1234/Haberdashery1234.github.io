@@ -78,7 +78,7 @@ export default function ProjectsGrid() {
         )}
       </div>
       <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-2">
-        Selected Work
+        Public Projects
       </h2>
       <p className="text-sm text-muted mb-12">
         {isLive ? (
